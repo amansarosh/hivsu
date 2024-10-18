@@ -6,7 +6,7 @@ import os
 # Load environment variables from .env file
 load_dotenv()
 
-   # Retrieve the API key from environment variables
+# Retrieve the API key from environment variables
 API_KEY = os.getenv("API_KEY")
 BASE_URL = "https://aeroapi.flightaware.com/aeroapi"
 
@@ -19,7 +19,7 @@ def get_flights(origin, destination):
     date_end = (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
     
     params = {
-        "start": date_start,
+        "start": date_start,  # Current time in ISO 8601 format
         "end": date_end,
         "type": "nonstop",  # Ensure only nonstop flights are retrieved
         "max_pages": 1  # Request only the first page of data
@@ -34,31 +34,19 @@ def get_flights(origin, destination):
         print(f"Error: {response.status_code} - {response.text}")
         return []
 
-def display_flights(flights, origin, destination):
-    en_route_flights = []
+def display_scheduled_flights(flights, origin, destination):
     scheduled_flights = []
 
     for flight in flights:
         for segment in flight.get("segments", []):
             status = segment.get("status", "Unknown")
-            actual_out = segment.get("actual_out", None)
-            actual_on = segment.get("actual_on", None)
-
-            # Determine if the flight is en route
-            if actual_out and not actual_on:
-                en_route_flights.append(segment)
-            elif status == "Scheduled":
+            if status == "Scheduled":
                 scheduled_flights.append(segment)
 
     # Sort scheduled flights by departure time
     scheduled_flights.sort(key=lambda x: x.get("scheduled_off", ""))
 
-    print(f"Flights from {origin} to {destination}:\n")
-    print("En Route Flights:")
-    for flight in en_route_flights:
-        print_flight_info(flight)
-
-    print("\nScheduled Flights:")
+    print(f"Scheduled Flights from {origin} to {destination}:\n")
     for flight in scheduled_flights:
         print_flight_info(flight)
 
@@ -84,14 +72,17 @@ def print_flight_info(flight):
 
 def main():
     with open("flights.txt", "r") as file:
-        route = file.read().strip()
-        origin, destination = route.split('-')
+        routes = file.readlines()
     
-    flights = get_flights(origin, destination)
-    if flights:
-        display_flights(flights, origin, destination)
-    else:
-        print(f"No flights found for route {origin} to {destination}.")
+    for route in routes:
+        origin, destination = route.strip().split('-')
+        print(f"\nChecking flights from {origin} to {destination}...\n")
+        
+        flights = get_flights(origin, destination)
+        if flights:
+            display_scheduled_flights(flights, origin, destination)
+        else:
+            print(f"No scheduled flights found for route {origin} to {destination}.")
 
 if __name__ == "__main__":
     main()
